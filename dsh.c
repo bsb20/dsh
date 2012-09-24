@@ -438,6 +438,25 @@ char* promptmsg() {
         return  "dsh$ ";
 }
 
+void execute_process(process_t* process, pid_t pgid) {
+    int pid = spawn_job(pgid, 1);
+    if (pid) {
+        int status;
+        waitpid(pid, &status, WUNTRACED);
+    }
+    else {
+        execve(process->argv[0], process->argv, NULL);
+    }
+}
+
+void execute_job(job_t* job) {
+    process_t* current_process = job->first_process;
+    while (current_process) {
+        execute_process(current_process, job->pgid);
+        current_process = current_process->next;
+    }
+}
+
 int main() {
 
 	init_shell();
@@ -453,7 +472,7 @@ int main() {
 		if (feof(stdin)) { /* End of file (ctrl-d) */
                         exit(0);
                 }
-	
-		/* Your code goes here */
+
+        execute_job(find_last_job());
 	}
 }
