@@ -1,4 +1,6 @@
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <termios.h>
 #include <unistd.h> /* getpid()*/
 #include <signal.h> /* signal name macros, and sig handlers*/
@@ -192,6 +194,12 @@ void spawn_job(job_t *j, bool fg) {
 
 			/* Set the handling for job control signals back to the default. */
 			signal(SIGTTOU, SIG_DFL);
+
+            if (j->mystdin == INPUT_FD)
+                dup2(open(j->ifile, O_RDONLY), STDIN_FILENO);
+            if (j->mystdout == OUTPUT_FD)
+                dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
+                     STDOUT_FILENO);
 
             execve(p->argv[0],p->argv, NULL);
             fprintf(stderr, "now you done fucked up\n");
