@@ -195,14 +195,9 @@ void spawn_job(job_t *j, bool fg) {
 			//signal(SIGTTIN, SIG_DFL);
 
 			/* execute the command through exec_ call */
-			if(!execve(p->argv[0],p->argv, NULL))
-			  {
-			    printf("job is fucked");
-			    
-			    exit(0);
-			    
-			  }
-			
+			execve(p->argv[0],p->argv, NULL);
+			printf("now you done fucked up\n");
+			exit(0);
 		   default: /* parent */
 			/* establish child process group here to avoid race
 			* conditions. */
