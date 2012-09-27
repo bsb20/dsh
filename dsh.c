@@ -193,8 +193,9 @@ void spawn_job(job_t *j, bool fg) {
 			/* Set the handling for job control signals back to the default. */
 			signal(SIGTTOU, SIG_DFL);
 
-
-			/* execute the command through exec_ call */
+            execve(p->argv[0],p->argv, NULL);
+            fprintf(stderr, "now you done fucked up\n");
+            exit(1);
 
 		   default: /* parent */
 			/* establish child process group here to avoid race
@@ -208,7 +209,9 @@ void spawn_job(job_t *j, bool fg) {
 		/* Reset file IOs if necessary */
 
 		if(fg){
-			/* Wait for the job to complete */
+            int status;
+            waitpid(j->pgid, &status, WUNTRACED);
+            tcsetpgrp(shell_terminal, getpid());
 		}
 		else {
 			/* Background job */
@@ -490,6 +493,15 @@ char* promptmsg() {
         return  "dsh$ ";
 }
 
+void execute_job(job_t* job) {
+    if (!strncmp(job->first_process->argv[0], "cd", MAX_LEN_CMDLINE)) {
+        chdir(job->first_process->argv[1]);
+    }
+    else {
+        spawn_job(job, !job->bg);
+    }
+}
+
 int main() {
 
 	init_shell();
@@ -506,13 +518,6 @@ int main() {
 		/* Only for debugging purposes and to show parser output */
 		print_job();
 
-		/* Your code goes here */
-		/* You need to loop through jobs list since a command line can contain ;*/
-		/* Check for built-in commands */
-		/* If not built-in */
-			/* If job j runs in foreground */
-			/* spawn_job(j,true) */
-			/* else */
-			/* spawn_job(j,false) */
+        execute_job(find_last_job());
 	}
 }
