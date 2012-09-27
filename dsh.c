@@ -489,8 +489,11 @@ bool readcmdline(char *msg) {
 }
 
 /* Build prompt messaage; Change this to include process ID (pid)*/
-char* promptmsg() {
-        return  "dsh$ ";
+char* promptmsg(char* buffer, size_t n) {
+    char cwd[256];
+    getcwd(cwd, 256);
+    snprintf(buffer, n, "dsh-%d %s $ ", getpid(), cwd);
+    return buffer;
 }
 
 void execute_job(job_t* job) {
@@ -507,7 +510,8 @@ int main() {
 	init_shell();
 
 	while(1) {
-		if(!readcmdline(promptmsg())) {
+        char prompt[256];
+		if(!readcmdline(promptmsg(prompt, 256))) {
 			if (feof(stdin)) { /* End of file (ctrl-d) */
 				fflush(stdout);
 				printf("\n");
