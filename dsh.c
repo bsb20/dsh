@@ -117,7 +117,7 @@ void init_shell() {
                  */
 
 		signal(SIGTTOU, SIG_IGN);
-		//		signal(SIGTTIN, SIG_IGN);
+
 		/* Put ourselves in our own process group.  */
 		shell_pgid = getpid();
 		if(setpgid(shell_pgid, shell_pgid) < 0) {
@@ -192,12 +192,10 @@ void spawn_job(job_t *j, bool fg) {
 
 			/* Set the handling for job control signals back to the default. */
 			signal(SIGTTOU, SIG_DFL);
-			//signal(SIGTTIN, SIG_DFL);
+
 
 			/* execute the command through exec_ call */
-			execve(p->argv[0],p->argv, NULL);
-			printf("now you done fucked up\n");
-			exit(0);
+
 		   default: /* parent */
 			/* establish child process group here to avoid race
 			* conditions. */
@@ -211,9 +209,6 @@ void spawn_job(job_t *j, bool fg) {
 
 		if(fg){
 			/* Wait for the job to complete */
-		  int status;
-		  waitpid(j->pgid, &status, WUNTRACED);
-		  tcsetpgrp(shell_terminal, getpid()); 
 		}
 		else {
 			/* Background job */
@@ -300,7 +295,7 @@ void print_job() {
 		if(j->mystdin == INPUT_FD)
 			fprintf(stdout, "Input file name: %s\n", j->ifile);
 		if(j->mystdout == OUTPUT_FD)
-			fprintf(stdout, "Outpt file name: %s\n", j->ofile);
+			fprintf(stdout, "Output file name: %s\n", j->ofile);
 	}
 }
 
@@ -342,6 +337,11 @@ bool readcmdline(char *msg) {
 		while (isspace(cmdline[cmdline_pos])){++cmdline_pos;} /* ignore any spaces */
 		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin))
 			return false;
+
+                /* Check for invalid special symbols (characters) */
+                if(cmdline[cmdline_pos] == ';' || cmdline[cmdline_pos] == '&'
+                        || cmdline[cmdline_pos] == '<' || cmdline[cmdline_pos] == '>' || cmdline[cmdline_pos] == '|')
+                        return false;
 
 		char *cmd = (char *)calloc(MAX_LEN_CMDLINE, sizeof(char));
 		if(!cmd)
@@ -490,10 +490,10 @@ char* promptmsg() {
         return  "dsh$ ";
 }
 
-
 int main() {
 
 	init_shell();
+
 	while(1) {
 		if(!readcmdline(promptmsg())) {
 			if (feof(stdin)) { /* End of file (ctrl-d) */
@@ -505,28 +505,14 @@ int main() {
 		}
 		/* Only for debugging purposes and to show parser output */
 		print_job();
-		job_t *current=first_job;
-		
-		while(current!=NULL)
-		  {
+
+		/* Your code goes here */
 		/* You need to loop through jobs list since a command line can contain ;*/
-		     printf("%s\n",current->first_process->argv[0]);
-		    
-		    if(current->pgid==-1 && !strcmp(current->first_process->argv[0], "cd"))
-		       {
-			 printf("cd is happening\n");
-			 chdir(current->first_process->argv[1]);
-			 current->pgid=-2;
-			  }
-		    
 		/* Check for built-in commands */
 		/* If not built-in */
 			/* If job j runs in foreground */
-		    if(current->pgid==-1)
-		      spawn_job(current,true);
-		      	/* else */
+			/* spawn_job(j,true) */
+			/* else */
 			/* spawn_job(j,false) */
-            current=current->next;
-		  }
 	}
 }
