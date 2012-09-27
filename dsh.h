@@ -9,6 +9,8 @@
 /*Max length of the command line */
 #define MAX_LEN_CMDLINE	120
 
+#define MAX_ARGS 20 /* Maximum number of arguments to any command */
+
 /*file descriptors for input and output; the range of fds are from 0 to 1023;
  * 0, 1, 2 are reserved for stdin, stdout, stderr */
 #define INPUT_FD  1000
@@ -38,11 +40,9 @@ typedef struct job {
         char *commandinfo;          /* entire command line input given by the user; useful for logging and message display*/
         process_t *first_process;   /* list of processes in this job */
         pid_t pgid;                 /* process group ID */
-        bool notified;              /* true if user told about stopped job */
+        bool notified;              /* true if user was informed about stopped job */
         struct termios tmodes;      /* saved terminal modes */
-        int stdin, stdout, stderr;  /* standard i/o channels */
-				    /* Cygwin/Windows seems to have issues with these IO definitions. The IO descriptors can be renamed 
-				     * to mystdin, mystdout, and mystderr if necessary. The dsh.c file also needs to be updated correspondingly.*/
+        int mystdin, mystdout, mystderr;  /* standard i/o channels */
         bool bg;                    /* true when & is issued on the command line */
         char *ifile;                /* stores input file name when < is issued */
         char *ofile;                /* stores output file name when > is issued */
