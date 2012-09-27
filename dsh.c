@@ -79,6 +79,28 @@ process_t *find_last_process(job_t *j) {
 	return p;
 }
 
+/* Remove job from jobs list and free it.  */
+bool remove_job(job_t* job) {
+	if (!first_job) {
+        return false;
+    }
+    else if (first_job == job) {
+        first_job = job->next;
+        return free_job(job);
+    }
+    else {
+        job_t *j = first_job;
+        while (j && j->next != job)
+            j = j->next;
+
+        if (j) {
+            j->next = job->next;
+            return free_job(job);
+        }
+        return false;
+    }
+}
+
 bool free_job(job_t *j) {
 	if(!j)
 		return true;
@@ -220,6 +242,7 @@ void spawn_job(job_t *j, bool fg) {
             int status;
             waitpid(j->pgid, &status, WUNTRACED);
             tcsetpgrp(shell_terminal, getpid());
+            p->completed = true;
 		}
 		else {
 			/* Background job */
@@ -510,6 +533,9 @@ void execute_job(job_t* job) {
     }
     else {
         spawn_job(job, !job->bg);
+        if (job_is_completed(job)) {
+            remove_job(job);
+        }
     }
 }
 
