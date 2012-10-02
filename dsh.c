@@ -145,6 +145,10 @@ int add_active_job(job_t* j) {
     return -1;
 }
 
+void error(char* msg) {
+    fprintf(stderr, "%s\n", msg);
+}
+
 /* Make sure the shell is running interactively as the foreground job
  * before proceeding.  
  * */
@@ -252,7 +256,7 @@ void spawn_job(job_t *j, bool fg) {
                      STDOUT_FILENO);
 
             execve(p->argv[0],p->argv, NULL);
-            fprintf(stderr, "now you done fucked up\n");
+            error("now you done fucked up");
             exit(1);
 
 		   default: /* parent */
@@ -273,7 +277,7 @@ void spawn_job(job_t *j, bool fg) {
             p->completed = true;
 		}
 		else {
-			/* Background job */
+            add_active_job(j);
 		}
 	}
 }
@@ -559,12 +563,36 @@ bool check_command(job_t* job, char* command) {
     return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE);
 }
 
+char* job_status(job_t* j) {
+    int status;
+    int pid = waitpid(j->pgid, &status, WNOHANG);
+    if (pid == -1) {
+        error("OH NOES");
+        printf("%d\n", (int) j->pgid);
+        return "Error";
+    }
+    else if (pid == 0) {
+        return "Running";
+    }
+    else if (WIFEXITED(status)) {
+        remove_job(j);
+        return "Done";
+    }
+    else if (WIFSIGNALED(status)) {
+        return "Suspended";
+    }
+    else {
+        error("Unknown status");
+        return "Error";
+    }
+}
+
 void builtin_jobs() {
     int i;
     job_t* j;
     for (i = 1; i <= MAX_JOBS; i++) {
         if ((j = active_jobs[i])) {
-            fprintf(stdout, "[%d]  %-20s %s\n", i, "Running", j->commandinfo);
+            fprintf(stdout, "[%d]  %-20s %s\n", i, job_status(j), j->commandinfo);
         }
     }
 }
@@ -579,7 +607,6 @@ void execute_job(job_t* job) {
         job->first_process->completed = true;
     }
     else {
-        add_active_job(job);
         spawn_job(job, !job->bg);
     }
 
