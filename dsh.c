@@ -11,6 +11,8 @@
 
 #include "dsh.h"
 
+#define MAX_JOBS 20
+
 int isspace(int c);
 
 /* Keep track of attributes of the shell.  */
@@ -18,6 +20,7 @@ pid_t shell_pgid;
 struct termios shell_tmodes;
 int shell_terminal;
 int shell_is_interactive;
+job_t* active_jobs[MAX_JOBS+1];
 
 void init_shell();
 void spawn_job(job_t *j, bool fg);
@@ -81,6 +84,13 @@ process_t *find_last_process(job_t *j) {
 
 /* Remove job from jobs list and free it.  */
 bool remove_job(job_t* job) {
+    int i;
+    for (i = 1; i <= MAX_JOBS; i++) {
+        if (active_jobs[i] == job) {
+            active_jobs[i] = NULL;
+        }
+    }
+
 	if (!first_job) {
         return false;
     }
@@ -115,6 +125,24 @@ bool free_job(job_t *j) {
 	}
 	free(j);
 	return true;
+}
+
+void clear_active_jobs() {
+    int i;
+    for (i = 1; i <= MAX_JOBS; i++) {
+        active_jobs[i] = NULL;
+    }
+}
+
+int add_active_job(job_t* j) {
+    int i;
+    for (i = 1; i <= MAX_JOBS; i++) {
+        if (!active_jobs[i]) {
+            active_jobs[i] = j;
+            return i;
+        }
+    }
+    return -1;
 }
 
 /* Make sure the shell is running interactively as the foreground job
@@ -532,9 +560,12 @@ bool check_command(job_t* job, char* command) {
 }
 
 void builtin_jobs() {
+    int i;
     job_t* j;
-	for(j = first_job; j; j = j->next) {
-        fprintf(stdout, "[%d]  %-20s %s\n", 1, "Running", j->commandinfo);
+    for (i = 1; i <= MAX_JOBS; i++) {
+        if ((j = active_jobs[i])) {
+            fprintf(stdout, "[%d]  %-20s %s\n", i, "Running", j->commandinfo);
+        }
     }
 }
 
@@ -548,6 +579,7 @@ void execute_job(job_t* job) {
         job->first_process->completed = true;
     }
     else {
+        add_active_job(job);
         spawn_job(job, !job->bg);
     }
 
@@ -559,6 +591,7 @@ void execute_job(job_t* job) {
 int main() {
 
 	init_shell();
+    clear_active_jobs();
 
 	while(1) {
         char prompt[256];
