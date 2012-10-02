@@ -527,15 +527,32 @@ char* promptmsg(char* buffer, size_t n) {
     return buffer;
 }
 
+bool check_command(job_t* job, char* command) {
+    return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE);
+}
+
+void builtin_jobs() {
+    job_t* j;
+	for(j = first_job; j; j = j->next) {
+        fprintf(stdout, "[%d]  %-20s %s\n", 1, "Running", j->commandinfo);
+    }
+}
+
 void execute_job(job_t* job) {
-    if (!strncmp(job->first_process->argv[0], "cd", MAX_LEN_CMDLINE)) {
+    if (check_command(job, "cd")) {
         chdir(job->first_process->argv[1]);
+        job->first_process->completed = true;
+    }
+    else if (check_command(job, "jobs")) {
+        builtin_jobs();
+        job->first_process->completed = true;
     }
     else {
         spawn_job(job, !job->bg);
-        if (job_is_completed(job)) {
-            remove_job(job);
-        }
+    }
+
+    if (job_is_completed(job)) {
+        remove_job(job);
     }
 }
 
