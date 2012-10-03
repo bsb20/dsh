@@ -211,8 +211,10 @@ void spawn_job(job_t *j, bool fg) {
 		       /* establish a new process group, and put the child in
 			* foreground if requested
 			*/
-			if (j->pgid < 0) /* init sets -ve to a new process */
+            if (j->pgid < 0) {/* init sets -ve to a new process */
 				j->pgid = getpid();
+                fprintf(stdout, "%d(Launched): %s\n", j->pgid, j->commandinfo);
+            }
 			p->pid = 0;
 
 			if (!setpgid(0,j->pgid))
