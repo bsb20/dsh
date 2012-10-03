@@ -237,7 +237,7 @@ void spawn_job(job_t *j, bool fg) {
                 dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
                      STDOUT_FILENO);
 
-            execvpe(p->argv[0],p->argv, NULL);
+            execvp(p->argv[0], p->argv);
             perror("now you done fucked up");
             exit(1);
 
