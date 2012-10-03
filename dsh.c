@@ -195,7 +195,10 @@ void spawn_job(job_t *j, bool fg) {
 	/* The code below provides an example on how to set the process context for each command */
 
 	for(p = j->first_process; p; p = p->next) {
-
+        int fd[2]={-1,-1};
+        if(p->next != NULL){
+            pipe(fd);
+        }
 		switch (pid = fork()) {
 
 		   case -1: /* fork failure */
@@ -219,14 +222,17 @@ void spawn_job(job_t *j, bool fg) {
 
 			/* Set the handling for job control signals back to the default. */
 			signal(SIGTTOU, SIG_DFL);
-
+            if(fd[1]!=-1){
+                close(fd[0]);
+                dup2(fd[1],1);
+            }
             if (j->mystdin == INPUT_FD)
                 dup2(open(j->ifile, O_RDONLY), STDIN_FILENO);
             if (j->mystdout == OUTPUT_FD)
                 dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
                      STDOUT_FILENO);
 
-            execvpe(p->argv[0],p->argv, NULL);
+            execve(p->argv[0],p->argv, NULL);
             perror("now you done fucked up");
             exit(1);
 
@@ -237,7 +243,12 @@ void spawn_job(job_t *j, bool fg) {
 			if (j->pgid <= 0)
 				j->pgid = pid;
 			setpgid(pid, j->pgid);
-		}
+            if(fd[0]!=-1){
+                printf("piping\n");
+                close(fd[1]);
+                dup2(fd[0],0);
+            }
+        }
 
 		/* Reset file IOs if necessary */
 
