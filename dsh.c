@@ -589,22 +589,6 @@ void resume_background_job(pid_t pgid) {
     }
 }
 
-void resume_foreground_job(pid_t pgid) {
-    job_t* j;
-    for (j = first_job; j; j = j->next) {
-        if (j->pgid == pgid) {
-            process_t* p;
-            for (p = j->first_process; p; p = p->next) {
-                if (p->stopped) {
-                    p->stopped = false;
-                    p->status = -1;
-                }
-            }
-            continue_job(j);
-        }
-    }
-}
-
 void execute_job(job_t* job) {
     if (check_command(job, "cd")) {
         chdir(job->first_process->argv[1]);
@@ -616,10 +600,6 @@ void execute_job(job_t* job) {
     }
     else if (check_command(job, "bg")) {
         resume_background_job(atoi(job->first_process->argv[1]));
-        remove_job(job);
-    }
-    else if (check_command(job, "fg")) {
-        resume_foreground_job(atoi(job->first_process->argv[1]));
         remove_job(job);
     }
     else {
