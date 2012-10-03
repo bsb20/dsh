@@ -179,6 +179,7 @@ void spawn_job(job_t *j, bool fg) {
 
 	pid_t pid;
 	process_t *p;
+    int read_fd = -1;
 
 	/* Check for input/output redirection; If present, set the IO descriptors 
 	 * to the appropriate files given by the user 
@@ -195,10 +196,11 @@ void spawn_job(job_t *j, bool fg) {
 	/* The code below provides an example on how to set the process context for each command */
 
 	for(p = j->first_process; p; p = p->next) {
-        int fd[2]={-1,-1};
+        int fd[2] = {-1,-1};
         if(p->next != NULL){
             pipe(fd);
         }
+
 		switch (pid = fork()) {
 
 		   case -1: /* fork failure */
@@ -222,9 +224,12 @@ void spawn_job(job_t *j, bool fg) {
 
 			/* Set the handling for job control signals back to the default. */
 			signal(SIGTTOU, SIG_DFL);
-            if(fd[1]!=-1){
-                close(fd[0]);
-                dup2(fd[1],1);
+
+            if (read_fd > 0) {
+                dup2(read_fd, STDIN_FILENO);
+            }
+            if (fd[1] > 0) {
+                dup2(fd[1], STDOUT_FILENO);
             }
             if (j->mystdin == INPUT_FD)
                 dup2(open(j->ifile, O_RDONLY), STDIN_FILENO);
@@ -243,14 +248,13 @@ void spawn_job(job_t *j, bool fg) {
 			if (j->pgid <= 0)
 				j->pgid = pid;
 			setpgid(pid, j->pgid);
-            if(fd[0]!=-1){
-                printf("piping\n");
-                close(fd[1]);
-                dup2(fd[0],0);
-            }
-        }
 
-		/* Reset file IOs if necessary */
+            if (read_fd > 0)
+                close(read_fd);
+            if (fd[1] > 0)
+                close(fd[1]);
+            read_fd = fd[0];
+        }
 
 		if(fg){
             if (waitpid(p->pid, &(p->status), WUNTRACED) == -1)
