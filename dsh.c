@@ -118,10 +118,6 @@ bool remove_job(job_t* job) {
     }
 }
 
-void error(char* msg) {
-    fprintf(stderr, "%s\n", msg);
-}
-
 /* Make sure the shell is running interactively as the foreground job
  * before proceeding.  
  * */
@@ -231,7 +227,7 @@ void spawn_job(job_t *j, bool fg) {
                      STDOUT_FILENO);
 
             execvpe(p->argv[0],p->argv, NULL);
-            error("now you done fucked up");
+            perror("now you done fucked up");
             exit(1);
 
 		   default: /* parent */
@@ -247,7 +243,7 @@ void spawn_job(job_t *j, bool fg) {
 
 		if(fg){
             if (waitpid(j->pgid, &(p->status), WUNTRACED) == -1) {
-                error("OH NOES");
+                perror("OH NOES");
             }
             tcsetpgrp(shell_terminal, getpid());
 		}
@@ -544,7 +540,7 @@ char* job_status(job_t* j) {
         if (p->status == -1) {
             int pid = waitpid(p->pid, &(p->status), WNOHANG);
             if (pid == -1) {
-                error("OH NOES");
+                perror("OH NOES");
                 return "Error";
             }
             else if (pid == 0) {
@@ -578,6 +574,22 @@ void builtin_jobs() {
     }
 }
 
+void resume_background_job(pid_t pgid) {
+    job_t* j;
+    for (j = first_job; j; j = j->next) {
+        if (j->pgid == pgid) {
+            process_t* p;
+            for (p = j->first_process; p; p = p->next) {
+                if (p->stopped) {
+                    p->stopped = false;
+                    p->status = -1;
+                }
+            }
+            continue_job(j);
+        }
+    }
+}
+
 void execute_job(job_t* job) {
     if (check_command(job, "cd")) {
         chdir(job->first_process->argv[1]);
@@ -586,6 +598,10 @@ void execute_job(job_t* job) {
     else if (check_command(job, "jobs")) {
         remove_job(job);
         builtin_jobs();
+    }
+    else if (check_command(job, "bg")) {
+        resume_background_job(atoi(job->first_process->argv[1]));
+        remove_job(job);
     }
     else {
         spawn_job(job, !job->bg);
