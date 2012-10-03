@@ -246,10 +246,10 @@ void spawn_job(job_t *j, bool fg) {
 		/* Reset file IOs if necessary */
 
 		if(fg){
-            int status;
-            waitpid(j->pgid, &status, WUNTRACED);
+            if (waitpid(j->pgid, &(p->status), WUNTRACED) == -1) {
+                error("OH NOES");
+            }
             tcsetpgrp(shell_terminal, getpid());
-            p->completed = true;
 		}
 		else {
 			/* Background job */
@@ -541,27 +541,23 @@ bool check_command(job_t* job, char* command) {
 char* job_status(job_t* j) {
     process_t* p;
     for (p = j->first_process; p; p = p->next) {
-        if (!p->completed) {
-            int status;
-            int pid = waitpid(p->pid, &status, WNOHANG);
+        if (p->status == -1) {
+            int pid = waitpid(p->pid, &(p->status), WNOHANG);
             if (pid == -1) {
                 error("OH NOES");
-                printf("%d\n", (int) j->pgid);
                 return "Error";
             }
             else if (pid == 0) {
                 return "Running";
             }
-            else if (WIFEXITED(status)) {
-                p->completed = true;
-            }
-            else if (WIFSTOPPED(status)) {
-                return "Suspended";
-            }
-            else {
-                error("Unknown status");
-                return "Error";
-            }
+        }
+
+        if (WIFEXITED(p->status)) {
+            p->completed = true;
+        }
+        if (WIFSTOPPED(p->status)) {
+            p->stopped = true;
+            return "Stopped";
         }
     }
     return "Completed";
