@@ -20,7 +20,6 @@ pid_t shell_pgid;
 struct termios shell_tmodes;
 int shell_terminal;
 int shell_is_interactive;
-job_t* active_jobs[MAX_JOBS+1];
 
 void init_shell();
 void spawn_job(job_t *j, bool fg);
@@ -84,13 +83,6 @@ process_t *find_last_process(job_t *j) {
 
 /* Remove job from jobs list and free it.  */
 bool remove_job(job_t* job) {
-    int i;
-    for (i = 1; i <= MAX_JOBS; i++) {
-        if (active_jobs[i] == job) {
-            active_jobs[i] = NULL;
-        }
-    }
-
 	if (!first_job) {
         return false;
     }
@@ -125,24 +117,6 @@ bool free_job(job_t *j) {
 	}
 	free(j);
 	return true;
-}
-
-void clear_active_jobs() {
-    int i;
-    for (i = 1; i <= MAX_JOBS; i++) {
-        active_jobs[i] = NULL;
-    }
-}
-
-int add_active_job(job_t* j) {
-    int i;
-    for (i = 1; i <= MAX_JOBS; i++) {
-        if (!active_jobs[i]) {
-            active_jobs[i] = j;
-            return i;
-        }
-    }
-    return -1;
 }
 
 void error(char* msg) {
@@ -255,7 +229,7 @@ void spawn_job(job_t *j, bool fg) {
                 dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
                      STDOUT_FILENO);
 
-            execve(p->argv[0],p->argv, NULL);
+            execvpe(p->argv[0],p->argv, NULL);
             error("now you done fucked up");
             exit(1);
 
@@ -277,7 +251,7 @@ void spawn_job(job_t *j, bool fg) {
             p->completed = true;
 		}
 		else {
-            add_active_job(j);
+
 		}
 	}
 }
@@ -564,35 +538,40 @@ bool check_command(job_t* job, char* command) {
 }
 
 char* job_status(job_t* j) {
-    int status;
-    int pid = waitpid(j->pgid, &status, WNOHANG);
-    if (pid == -1) {
-        error("OH NOES");
-        printf("%d\n", (int) j->pgid);
-        return "Error";
+    process_t* p;
+    for (p = j->first_process; p; p = p->next) {
+        if (!p->completed) {
+            int status;
+            int pid = waitpid(p->pid, &status, WNOHANG);
+            if (pid == -1) {
+                error("OH NOES");
+                printf("%d\n", (int) j->pgid);
+                return "Error";
+            }
+            else if (pid == 0) {
+                return "Running";
+            }
+            else if (WIFEXITED(status)) {
+                p->completed = true;
+            }
+            else if (WIFSTOPPED(status)) {
+                return "Suspended";
+            }
+            else {
+                error("Unknown status");
+                return "Error";
+            }
+        }
     }
-    else if (pid == 0) {
-        return "Running";
-    }
-    else if (WIFEXITED(status)) {
-        remove_job(j);
-        return "Done";
-    }
-    else if (WIFSIGNALED(status)) {
-        return "Suspended";
-    }
-    else {
-        error("Unknown status");
-        return "Error";
-    }
+    return "Completed";
 }
 
 void builtin_jobs() {
-    int i;
     job_t* j;
-    for (i = 1; i <= MAX_JOBS; i++) {
-        if ((j = active_jobs[i])) {
-            fprintf(stdout, "[%d]  %-20s %s\n", i, job_status(j), j->commandinfo);
+    for (j = first_job; j; j = j->next) {
+        fprintf(stdout, "%d(%s): %s\n", j->pgid, job_status(j), j->commandinfo);
+        if (job_is_completed(j)) {
+            remove_job(j);
         }
     }
 }
@@ -600,25 +579,20 @@ void builtin_jobs() {
 void execute_job(job_t* job) {
     if (check_command(job, "cd")) {
         chdir(job->first_process->argv[1]);
-        job->first_process->completed = true;
+        remove_job(job);
     }
     else if (check_command(job, "jobs")) {
         builtin_jobs();
-        job->first_process->completed = true;
+        remove_job(job);
     }
     else {
         spawn_job(job, !job->bg);
-    }
-
-    if (job_is_completed(job)) {
-        remove_job(job);
     }
 }
 
 int main() {
 
 	init_shell();
-    clear_active_jobs();
 
 	while(1) {
         char prompt[256];
@@ -631,8 +605,13 @@ int main() {
 			continue; /* NOOP; user entered return or spaces with return */
 		}
 		/* Only for debugging purposes and to show parser output */
-		print_job();
+		//print_job();
 
-        execute_job(find_last_job());
+        job_t* j;
+        for (j = first_job; j; j = j->next) {
+            if (j->pgid == -1) {
+                execute_job(j);
+            }
+        }
 	}
 }
