@@ -11,8 +11,6 @@
 
 #include "dsh.h"
 
-#define MAX_JOBS 20
-
 int isspace(int c);
 
 /* Keep track of attributes of the shell.  */
@@ -27,6 +25,7 @@ job_t * find_job(pid_t pgid);
 int job_is_stopped(job_t *j);
 int job_is_completed(job_t *j);
 bool free_job(job_t *j);
+bool remove_job(job_t* job);
 
 /* Initializing the header for the job list. The active jobs are linked into a list. */
 job_t *first_job = NULL;
@@ -81,6 +80,22 @@ process_t *find_last_process(job_t *j) {
 	return p;
 }
 
+bool free_job(job_t *j) {
+	if(!j)
+		return true;
+	free(j->commandinfo);
+	free(j->ifile);
+	free(j->ofile);
+	process_t *p;
+	for(p = j->first_process; p; p = p->next) {
+		int i;
+		for(i = 0; i < p->argc; i++)
+			free(p->argv[i]);
+	}
+	free(j);
+	return true;
+}
+
 /* Remove job from jobs list and free it.  */
 bool remove_job(job_t* job) {
 	if (!first_job) {
@@ -101,22 +116,6 @@ bool remove_job(job_t* job) {
         }
         return false;
     }
-}
-
-bool free_job(job_t *j) {
-	if(!j)
-		return true;
-	free(j->commandinfo);
-	free(j->ifile);
-	free(j->ofile);
-	process_t *p;
-	for(p = j->first_process; p; p = p->next) {
-		int i;
-		for(i = 0; i < p->argc; i++)
-			free(p->argv[i]);
-	}
-	free(j);
-	return true;
 }
 
 void error(char* msg) {
@@ -251,7 +250,7 @@ void spawn_job(job_t *j, bool fg) {
             p->completed = true;
 		}
 		else {
-
+			/* Background job */
 		}
 	}
 }
@@ -567,12 +566,17 @@ char* job_status(job_t* j) {
 }
 
 void builtin_jobs() {
-    job_t* j;
-    for (j = first_job; j; j = j->next) {
-        fprintf(stdout, "%d(%s): %s\n", j->pgid, job_status(j), j->commandinfo);
-        if (job_is_completed(j)) {
-            remove_job(j);
+    job_t* j, *prev;
+    for (j = first_job, prev = NULL; j; prev = j, j = j->next) {
+        if (prev && job_is_completed(prev)) {
+            remove_job(prev);
         }
+
+        fprintf(stdout, "%d(%s): %s\n", j->pgid, job_status(j), j->commandinfo);
+    }
+
+    if (prev && job_is_completed(prev)) {
+        remove_job(prev);
     }
 }
 
@@ -582,8 +586,8 @@ void execute_job(job_t* job) {
         remove_job(job);
     }
     else if (check_command(job, "jobs")) {
-        builtin_jobs();
         remove_job(job);
+        builtin_jobs();
     }
     else {
         spawn_job(job, !job->bg);
@@ -604,8 +608,6 @@ int main() {
                 	}
 			continue; /* NOOP; user entered return or spaces with return */
 		}
-		/* Only for debugging purposes and to show parser output */
-		//print_job();
 
         job_t* j;
         for (j = first_job; j; j = j->next) {
