@@ -194,13 +194,14 @@ void spawn_job(job_t *j, bool fg) {
          */ 	
 
 	/* The code below provides an example on how to set the process context for each command */
+    
 
 	for(p = j->first_process; p; p = p->next) {
         int fd[2] = {-1,-1};
         if(p->next != NULL){
             pipe(fd);
         }
-
+    
 		switch (pid = fork()) {
 
 		   case -1: /* fork failure */
@@ -208,22 +209,32 @@ void spawn_job(job_t *j, bool fg) {
 			exit(EXIT_FAILURE);
 
 		   case 0: /* child */
-
-		       /* establish a new process group, and put the child in
+                printf("pid: %d\n",getpid());
+		       
+               /* establish a new process group, and put the child in
 			* foreground if requested
 			*/
+            
             if (j->pgid < 0) {/* init sets -ve to a new process */
 				j->pgid = getpid();
                 fprintf(stdout, "%d(Launched): %s\n", j->pgid, j->commandinfo);
             }
 			p->pid = 0;
-
-			if (!setpgid(0,j->pgid))
+			
+            printf("PID: %d, PGID: %d\n", getpid(), j->pgid);
+			if (!setpgid(getpid(),j->pgid)){
 				if(fg) // If success and fg is set
 				     tcsetpgrp(shell_terminal, j->pgid); // assign the terminal
-
-			/* Set the handling for job control signals back to the default. */
-			signal(SIGTTOU, SIG_DFL);
+                
+                }
+            else{
+            printf(" hello: %d\t%d\n",errno,setpgid(0,j->pgid));
+            perror("setpgid");
+            }
+            //printf("pgid %d\n", getpgid(getpid()));
+            
+                /* Set the handling for job control signals back to the default. */
+            signal(SIGTTOU, SIG_DFL);
 
             if (read_fd > 0) {
                 dup2(read_fd, STDIN_FILENO);
@@ -256,15 +267,28 @@ void spawn_job(job_t *j, bool fg) {
             read_fd = fd[0];
         }
 
-		if(fg){
-            if (waitpid(p->pid, &(p->status), WUNTRACED) == -1)
+	
+	}
+    process_t * current = j->first_process;
+    while(current){
+    	if(fg){
+            int status;
+            pid_t changedProcess;
+            if ((changedProcess=waitpid(WAIT_ANY, &status, WUNTRACED)) == -1)
                 perror("OH NOES");
+            process_t * setStatus=j->first_process;
+            while(setStatus){
+                if(setStatus->pid == changedProcess)
+                    setStatus->status=status;
+                setStatus=setStatus->next;
+            }
             tcsetpgrp(shell_terminal, getpid());
 		}
 		else {
 			/* Background job */
 		}
-	}
+        current=current->next;
+        }
 }
 
 bool init_job(job_t *j) {
