@@ -244,14 +244,17 @@ void spawn_job(job_t *j, bool fg) {
             if (read_fd > 0) {
                 dup2(read_fd, STDIN_FILENO);
             }
+            else if (j->mystdin == INPUT_FD) {
+                dup2(open(j->ifile, O_RDONLY), STDIN_FILENO);
+            }
+
             if (fd[1] > 0) {
                 dup2(fd[1], STDOUT_FILENO);
             }
-            if (j->mystdin == INPUT_FD)
-                dup2(open(j->ifile, O_RDONLY), STDIN_FILENO);
-            if (j->mystdout == OUTPUT_FD)
+            else if (j->mystdout == OUTPUT_FD) {
                 dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
                      STDOUT_FILENO);
+            }
 
             execvp(p->argv[0], p->argv);
             perror("now you done fucked up");
