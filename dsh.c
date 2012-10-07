@@ -575,13 +575,18 @@ char* job_status(job_t* j) {
 
         if (WIFEXITED(p->status)) {
             p->completed = true;
+            return "Completed";
+        }
+        if (WIFSIGNALED(p->status)) {
+            p->completed = true;
+            return "Teminated";
         }
         if (WIFSTOPPED(p->status)) {
             p->stopped = true;
             return "Stopped";
         }
     }
-    return "Completed";
+    return "Unknown";
 }
 
 void builtin_jobs() {
