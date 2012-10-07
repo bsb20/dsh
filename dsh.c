@@ -370,6 +370,15 @@ void print_job() {
 	}
 }
 
+void print_colored_prompt(FILE* stream, char* msg) {
+    int i;
+    for (i = 0; msg[i]; i++) {
+        int color = 31 + random() % 6;
+        fprintf(stream, "%c[%d;%d;%dm%c", 0x1B, 0, color, 40, msg[i]);
+    }
+    fprintf(stream, " %c[%d;%d;%dm$ ", 0x1B, 0, 37, 40);
+}
+
 /* Basic parser that fills the data structures job_t and process_t defined in
  * dsh.h. We tried to make the parser flexible but it is not tested
  * with arbitrary inputs. Be prepared to hack it for the features
@@ -382,7 +391,7 @@ void print_job() {
 
 bool readcmdline(char *msg) {
 
-	fprintf(stdout, "%s", msg);
+    print_colored_prompt(stdout, msg);
 
 	char *cmdline = (char *)calloc(MAX_LEN_CMDLINE, sizeof(char));
 	if(!cmdline)
@@ -560,7 +569,7 @@ bool readcmdline(char *msg) {
 char* promptmsg(char* buffer, size_t n) {
     char cwd[256];
     getcwd(cwd, 256);
-    snprintf(buffer, n, "dsh-%d %s $ ", getpid(), cwd);
+    snprintf(buffer, n, "dsh-%d %s", getpid(), cwd);
     return buffer;
 }
 
