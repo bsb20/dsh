@@ -569,6 +569,7 @@ bool check_command(job_t* job, char* command) {
 }
 
 char* job_status(job_t* j) {
+    bool terminated = false;
     process_t* p;
     for (p = j->first_process; p; p = p->next) {
         if (p->status == -1) {
@@ -584,18 +585,17 @@ char* job_status(job_t* j) {
 
         if (WIFEXITED(p->status)) {
             p->completed = true;
-            return "Completed";
         }
         if (WIFSIGNALED(p->status)) {
             p->completed = true;
-            return "Teminated";
+            terminated = true;
         }
         if (WIFSTOPPED(p->status)) {
             p->stopped = true;
             return "Stopped";
         }
     }
-    return "Unknown";
+    return terminated ? "Terminated" : "Completed";
 }
 
 void builtin_jobs() {
