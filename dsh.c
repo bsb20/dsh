@@ -11,6 +11,8 @@
 
 #include "dsh.h"
 
+#define LOGFILE "log.txt"
+
 int isspace(int c);
 
 /* Keep track of attributes of the shell.  */
@@ -29,6 +31,7 @@ bool remove_job(job_t* job);
 
 /* Initializing the header for the job list. The active jobs are linked into a list. */
 job_t *first_job = NULL;
+int log_fd;
 
 /* Find the job with the indicated pgid.  */
 job_t *find_job(pid_t pgid) {
@@ -156,6 +159,8 @@ void init_shell() {
 		/* Save default terminal attributes for shell.  */
 		tcgetattr(shell_terminal, &shell_tmodes);
 	}
+
+    log_fd = open(LOGFILE, O_WRONLY|O_CREAT|O_TRUNC, 0664);
 }
 
 /* Sends SIGCONT signal to wake up the blocked job */
@@ -255,6 +260,7 @@ void spawn_job(job_t *j, bool fg) {
                 dup2(open(j->ofile, O_WRONLY|O_CREAT|O_TRUNC, 0664),
                      STDOUT_FILENO);
             }
+            dup2(log_fd, STDERR_FILENO);
 
             execvp(p->argv[0], p->argv);
             perror("now you done fucked up");
