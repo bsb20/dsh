@@ -415,7 +415,7 @@ bool readcmdline(char *msg) {
 		bool valid_input = true; /* check for valid input */
 		bool end_of_input = false; /* check for end of input */
 
-		/* cmdline is NOOP, i.e., just return with spaces – UPDATE: OR a comment by itself */
+		/* cmdline is NOOP, i.e., just return with spaces*/
 		while (isspace(cmdline[cmdline_pos])){++cmdline_pos;} /* ignore any spaces */
 		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin))
 			return false;
