@@ -565,7 +565,7 @@ bool readcmdline(char *msg) {
 	return true;
 }
 
-/* Build prompt messaage; Change this to include process ID (pid)*/
+/* Build prompt messaage; DSH displays "dsh-pid cwd"*/
 char* promptmsg(char* buffer, size_t n) {
     char cwd[256];
     getcwd(cwd, 256);
@@ -575,9 +575,10 @@ char* promptmsg(char* buffer, size_t n) {
 
 /* Returns true if job's command is equal to the specified string */
 bool check_command(job_t* job, char* command) {
-    return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE); //use ! b/c strncmp returns 0 if the same strings
+    return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE); //use ! b/c strncmp returns 0 if strings are same
 }
 
+/* Returns the current status of a specified job*/
 char* job_status(job_t* j) {
     bool terminated = false;
     process_t* p;
@@ -608,10 +609,11 @@ char* job_status(job_t* j) {
     return terminated ? "Terminated" : "Completed";
 }
 
+/* Displays the command strings and status for all current jobs */
 void builtin_jobs() {
     job_t* j, *prev;
     for (j = first_job, prev = NULL; j; prev = j, j = j->next) {
-        if (prev && job_is_completed(prev)) {
+        if (prev && job_is_completed(prev)) {   //only display running jobs that have not completed
             remove_job(prev);
         }
 
@@ -622,11 +624,12 @@ void builtin_jobs() {
         remove_job(prev);
     }
 }
-/* Continue job with specifed pgid in the background */
+/* Continue job with specifed pgid in the background. Control stays with terminal*/
 void resume_background_job(pid_t pgid) {
     job_t* j;
-    for (j = first_job; j; j = j->next) {   //ID stopped processes and resume them
+    for (j = first_job; j; j = j->next) {   //ID stopped processes in specified job and resume them
         if (j->pgid == pgid) {
+			j->bg = true;
             process_t* p;
             for (p = j->first_process; p; p = p->next) {
                 if (p->stopped) {
@@ -644,9 +647,10 @@ void resume_foreground_job(pid_t pgid) {
     job_t* j;
     for (j = first_job; j; j = j->next) {
         if (j->pgid == pgid) {
+			j->bg = false;
             process_t* p;
             for (p = j->first_process; p; p = p->next) { 
-                if (p->stopped) {                  //ID stopped processes and resume them
+                if (p->stopped) {                  //ID stopped processes in specified job and resume them
                     p->stopped = false;
                     p->status = -1;
                 }
