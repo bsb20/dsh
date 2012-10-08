@@ -573,8 +573,9 @@ char* promptmsg(char* buffer, size_t n) {
     return buffer;
 }
 
+/* Returns true if job's command is equal to the specified string */
 bool check_command(job_t* job, char* command) {
-    return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE);
+    return !strncmp(job->first_process->argv[0], command, MAX_LEN_CMDLINE); //use ! b/c strncmp returns 0 if the same strings
 }
 
 char* job_status(job_t* j) {
@@ -621,10 +622,10 @@ void builtin_jobs() {
         remove_job(prev);
     }
 }
-
+/* Continue job with specifed pgid in the background */
 void resume_background_job(pid_t pgid) {
     job_t* j;
-    for (j = first_job; j; j = j->next) {
+    for (j = first_job; j; j = j->next) {   //ID stopped processes and resume them
         if (j->pgid == pgid) {
             process_t* p;
             for (p = j->first_process; p; p = p->next) {
@@ -633,49 +634,50 @@ void resume_background_job(pid_t pgid) {
                     p->status = -1;
                 }
             }
-            continue_job(j);
+            continue_job(j);                //sends SIGCONT signal to job
         }
     }
 }
 
+/* Continue job with specifed pgid in the foreground */
 void resume_foreground_job(pid_t pgid) {
     job_t* j;
     for (j = first_job; j; j = j->next) {
         if (j->pgid == pgid) {
             process_t* p;
-            for (p = j->first_process; p; p = p->next) {
-                if (p->stopped) {
+            for (p = j->first_process; p; p = p->next) { 
+                if (p->stopped) {                  //ID stopped processes and resume them
                     p->stopped = false;
                     p->status = -1;
                 }
             }
-            tcsetpgrp(shell_terminal, j->pgid);
-            continue_job(j);
-            wait_on_job(j);
-            tcsetpgrp(shell_terminal, shell_pgid);
+            tcsetpgrp(shell_terminal, j->pgid);    //move the job to the terminal foreground
+            continue_job(j);                       //send SIGCONT signal
+            wait_on_job(j); 
+            tcsetpgrp(shell_terminal, shell_pgid); //when foregroung job exits or stops, return control to dsh
         }
     }
 }
 
 void execute_job(job_t* job) {
 	/*Check commandline for built-in commands*/
-    if (check_command(job, "cd")) { //change directory - alter current directory and remove completed job
+    if (check_command(job, "cd")) {         //change directory - alter current directory and remove completed job
         chdir(job->first_process->argv[1]);
         remove_job(job);
     }
-    else if (check_command(job, "jobs")) { //display current jobs and their statuses (stati?)
+    else if (check_command(job, "jobs")) {  //display current jobs and their statuses (stati?)
         remove_job(job);
         builtin_jobs();
     }
-    else if (check_command(job, "bg")) { //resume background job with specified number 
+    else if (check_command(job, "bg")) {    //resume background job with specified number 
         resume_background_job(atoi(job->first_process->argv[1])); //atoi interprets string as integer value
         remove_job(job);
     }
-    else if (check_command(job, "fg")) { //continue foreground job with specified number 
+    else if (check_command(job, "fg")) {    //continue foreground job with specified number 
         resume_foreground_job(atoi(job->first_process->argv[1]));
         remove_job(job);
-    }
-    else { //Default case, not built in command - spawn the new job
+    } 
+    else {                                  //Default case, not built in command - spawn the new job
         spawn_job(job, !job->bg);
     }
 }
@@ -696,7 +698,7 @@ int main() {
 		}
 
         job_t* j;
-        for (j = first_job; j; j = j->next) { /*Execute the new job (initialized with pgID=1)*/
+        for (j = first_job; j; j = j->next) { /*Execute the new job (initialized with pgID = -1)*/
             if (j->pgid == -1) {
                 execute_job(j);
             }
