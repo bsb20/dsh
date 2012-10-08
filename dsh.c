@@ -417,7 +417,10 @@ bool readcmdline(char *msg) {
 
 		/* cmdline is NOOP, i.e., just return with spaces – UPDATE: OR a comment by itself */
 		while (isspace(cmdline[cmdline_pos])){++cmdline_pos;} /* ignore any spaces */
-		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin) || '#')
+		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin))
+			return false;
+		
+		if (cmdline[cmdline_pos] == '#') //no commands, just a comment
 			return false;
 
                 /* Check for invalid special symbols (characters) */
