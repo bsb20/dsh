@@ -616,20 +616,16 @@ char* job_status(job_t* j) {
 
 /* Displays the command strings and status for all current jobs */
 void builtin_jobs() {
-    job_t* j, *prev;
+    job_t* j;
 	int i;
-    for (j = first_job, prev = NULL, i = 1; j; prev = j, j = j->next, i++) {
-        if (prev && job_is_completed(prev)) {   //only display running jobs that have not completed
-            remove_job(prev);
-        }
-
-        fprintf(stdout, "[%d] %d(%s): %s\n", i, j->pgid, job_status(j), j->commandinfo);
-    }
-
-    if (prev && job_is_completed(prev)) {
-        remove_job(prev);
-    }
+	for (j=first_job, i = 1; j; j = j->next, i++){
+		fprintf(stdout, "[%d] %d(%s): %s\n", i, j->pgid, job_status(j), j->commandinfo);
+		if (job_is_completed(j)){
+			remove_job(j);
+		}
+	}
 }
+
 /* Continue job with specifed pgid in the background. Control stays with terminal*/
 void resume_background_job(pid_t pgid) {
     job_t* j = find_job(pgid);      //ID the stopped job 
