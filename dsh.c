@@ -169,14 +169,17 @@ void continue_job(job_t *j) {
 		perror("kill(SIGCONT)");
 }
 
+/* Makes the shell wait until all the processes in the process group of the specifed job
+ * have either terminated or stopped.
+ */
 void wait_on_job(job_t* j) {
     process_t * current = j->first_process;
-    while(current){
-        int status;
+    while(current){                               //loop through process group to ensure correct # of waitpid calls
+        int status;                               //exit status assigned to variable
         pid_t changedProcess;
         if ((changedProcess=waitpid(WAIT_ANY, &status, WUNTRACED)) == -1)
             perror("OH NOES");
-        process_t * setStatus=j->first_process;
+        process_t * setStatus=j->first_process;   //find which process has stopped and assign its exit status accordingly
         while(setStatus){
             if(setStatus->pid == changedProcess)
                 setStatus->status=status;
@@ -626,41 +629,33 @@ void builtin_jobs() {
 }
 /* Continue job with specifed pgid in the background. Control stays with terminal*/
 void resume_background_job(pid_t pgid) {
-    job_t* j;
-    for (j = first_job; j; j = j->next) {   //ID stopped processes in specified job and resume them
-        if (j->pgid == pgid) {
-			j->bg = true;
-            process_t* p;
-            for (p = j->first_process; p; p = p->next) {
-                if (p->stopped) {
-                    p->stopped = false;
-                    p->status = -1;
-                }
-            }
-            continue_job(j);                //sends SIGCONT signal to job
-        }
-    }
+    job_t* j = find_job(pgid);      //ID the stopped job 
+	j->bg = true;
+	process_t* p;                  
+	for (p = j->first_process; p; p = p->next) {
+		if (p->stopped) {           //resume all stopped processes in its process group
+			p->stopped = false;
+			p->status = -1;
+		}
+	}
+	continue_job(j);                //sends SIGCONT signal to job
 }
 
 /* Continue job with specifed pgid in the foreground */
-void resume_foreground_job(pid_t pgid) {
-    job_t* j;
-    for (j = first_job; j; j = j->next) {
-        if (j->pgid == pgid) {
-			j->bg = false;
-            process_t* p;
-            for (p = j->first_process; p; p = p->next) { 
-                if (p->stopped) {                  //ID stopped processes in specified job and resume them
-                    p->stopped = false;
-                    p->status = -1;
-                }
-            }
-            tcsetpgrp(shell_terminal, j->pgid);    //move the job to the terminal foreground
-            continue_job(j);                       //send SIGCONT signal
-            wait_on_job(j); 
-            tcsetpgrp(shell_terminal, shell_pgid); //when foregroung job exits or stops, return control to dsh
-        }
-    }
+void resume_foreground_job(pid_t pgid) { 
+	job_t* j = find_job(pgid);            //obtain job with specified processs group ID
+	j->bg = false;                        //if was in background before, it is no longer
+	process_t* p;
+	for (p = j->first_process; p; p = p->next) { 
+		if (p->stopped) {                  //ID stopped processes in specified job and resume them
+			p->stopped = false;
+			p->status = -1;
+		}
+	}
+	tcsetpgrp(shell_terminal, j->pgid);    //move the job to the terminal foreground
+	continue_job(j);                       //send SIGCONT signal
+	wait_on_job(j);                        //suspend dsh until job exits or stops
+	tcsetpgrp(shell_terminal, shell_pgid); //when foregroung job exits or stops, return control to dsh
 }
 
 void execute_job(job_t* job) {
