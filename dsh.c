@@ -617,12 +617,13 @@ char* job_status(job_t* j) {
 /* Displays the command strings and status for all current jobs */
 void builtin_jobs() {
     job_t* j, *prev;
-    for (j = first_job, prev = NULL; j; prev = j, j = j->next) {
+	int i;
+    for (j = first_job, prev = NULL, i = 1; j; prev = j, j = j->next, i++) {
         if (prev && job_is_completed(prev)) {   //only display running jobs that have not completed
             remove_job(prev);
         }
 
-        fprintf(stdout, "%d(%s): %s\n", j->pgid, job_status(j), j->commandinfo);
+        fprintf(stdout, "[%d] %d(%s): %s\n", i, j->pgid, job_status(j), j->commandinfo);
     }
 
     if (prev && job_is_completed(prev)) {
