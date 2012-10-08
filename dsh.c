@@ -658,23 +658,24 @@ void resume_foreground_job(pid_t pgid) {
 }
 
 void execute_job(job_t* job) {
-    if (check_command(job, "cd")) {
+	/*Check commandline for built-in commands*/
+    if (check_command(job, "cd")) { //change directory - alter current directory and remove completed job
         chdir(job->first_process->argv[1]);
         remove_job(job);
     }
-    else if (check_command(job, "jobs")) {
+    else if (check_command(job, "jobs")) { //display current jobs and their statuses (stati?)
         remove_job(job);
         builtin_jobs();
     }
-    else if (check_command(job, "bg")) {
-        resume_background_job(atoi(job->first_process->argv[1]));
+    else if (check_command(job, "bg")) { //resume background job with specified number 
+        resume_background_job(atoi(job->first_process->argv[1])); //atoi interprets string as integer value
         remove_job(job);
     }
-    else if (check_command(job, "fg")) {
+    else if (check_command(job, "fg")) { //continue foreground job with specified number 
         resume_foreground_job(atoi(job->first_process->argv[1]));
         remove_job(job);
     }
-    else {
+    else { //Default case, not built in command - spawn the new job
         spawn_job(job, !job->bg);
     }
 }
@@ -695,7 +696,7 @@ int main() {
 		}
 
         job_t* j;
-        for (j = first_job; j; j = j->next) {
+        for (j = first_job; j; j = j->next) { /*Execute the new job (initialized with pgID=1)*/
             if (j->pgid == -1) {
                 execute_job(j);
             }
