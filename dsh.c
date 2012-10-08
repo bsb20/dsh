@@ -55,7 +55,6 @@ int job_is_stopped(job_t *j) {
 
 /* Return true if all processes in the job have completed.  */
 int job_is_completed(job_t *j) {
-
 	process_t *p;
 	for(p = j->first_process; p; p = p->next)
 		if(!p->completed)
@@ -92,8 +91,9 @@ bool free_job(job_t *j) {
 	process_t *p;
 	for(p = j->first_process; p; p = p->next) {
 		int i;
-		for(i = 0; i < p->argc; i++)
-			free(p->argv[i]);
+		for(i = 0; i < p->argc; i++){
+		free(p->argv[i]); 
+		}
 	}
 	free(j);
 	return true;
@@ -117,6 +117,7 @@ bool remove_job(job_t* job) {
             j->next = job->next;
             return free_job(job);
         }
+		
         return false;
     }
 }
@@ -617,12 +618,17 @@ char* job_status(job_t* j) {
 /* Displays the command strings and status for all current jobs */
 void builtin_jobs() {
     job_t* j;
+	job_t* prev;
 	int i;
-	for (j=first_job, i = 1; j; j = j->next, i++){ //for each job, print status, then remove if completed
+	for (prev = NULL, j=first_job, i = 1; j; prev = j, j=j->next, i++){ //for each job, print status, then remove if completed
+		
 		fprintf(stdout, "[%d] %d(%s): %s\n", i, j->pgid, job_status(j), j->commandinfo);
-		if (job_is_completed(j)){
-			remove_job(j);
-		}
+		
+		if (prev && job_is_completed(prev))
+			remove_job(prev);
+	}
+	if (prev && job_is_completed(prev)){
+		remove_job(prev);
 	}
 }
 
