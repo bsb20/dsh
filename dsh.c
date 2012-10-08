@@ -393,7 +393,7 @@ void print_colored_prompt(FILE* stream, char* msg) {
  */
 
 bool readcmdline(char *msg) {
-
+	
     print_colored_prompt(stdout, msg);
 
 	char *cmdline = (char *)calloc(MAX_LEN_CMDLINE, sizeof(char));
@@ -410,15 +410,14 @@ bool readcmdline(char *msg) {
 
 	while(1) {
 		job_t *current_job = find_last_job();
-
 		int cmd_pos = 0; /* iterator for a command */
 		int iofile_seek = 0; /*iofile_seek for file */
 		bool valid_input = true; /* check for valid input */
 		bool end_of_input = false; /* check for end of input */
 
-		/* cmdline is NOOP, i.e., just return with spaces */
+		/* cmdline is NOOP, i.e., just return with spaces – UPDATE: OR a comment by itself */
 		while (isspace(cmdline[cmdline_pos])){++cmdline_pos;} /* ignore any spaces */
-		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin))
+		if(cmdline[cmdline_pos] == '\n' || cmdline[cmdline_pos] == '\0' || feof(stdin) || '#')
 			return false;
 
                 /* Check for invalid special symbols (characters) */
@@ -449,7 +448,7 @@ bool readcmdline(char *msg) {
 		while(cmdline[cmdline_pos] != '\n' && cmdline[cmdline_pos] != '\0') {
 
 			switch (cmdline[cmdline_pos]) {
-
+								
 			    case '<': /* input redirection */
 				current_job->ifile = (char *) calloc(MAX_LEN_FILENAME, sizeof(char));
 				if(!current_job->ifile)
@@ -527,7 +526,7 @@ bool readcmdline(char *msg) {
 				strncpy(current_job->commandinfo,cmdline+seq_pos,cmdline_pos-seq_pos);
 				seq_pos = cmdline_pos + 1;
 				break;	
-
+                
 			   case '#': /* comment */
 				end_of_input = true;
 				break;
