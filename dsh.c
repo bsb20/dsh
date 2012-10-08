@@ -618,7 +618,7 @@ char* job_status(job_t* j) {
 void builtin_jobs() {
     job_t* j;
 	int i;
-	for (j=first_job, i = 1; j; j = j->next, i++){
+	for (j=first_job, i = 1; j; j = j->next, i++){ //for each job, print status, then remove if completed
 		fprintf(stdout, "[%d] %d(%s): %s\n", i, j->pgid, job_status(j), j->commandinfo);
 		if (job_is_completed(j)){
 			remove_job(j);
