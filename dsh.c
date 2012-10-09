@@ -220,7 +220,7 @@ void spawn_job(job_t *j, bool fg) {
 
 	/* The code below provides an example on how to set the process context for each command */
 
-	for(p = j->first_process; p; p = p->next) {
+	for(p = j->first_process; p; p = p->next) {                     //if job has multiple processes it means they are linked by pipes, so assign accordingly
         int fd[2] = {-1,-1};
         if(p->next != NULL){
             pipe(fd);
@@ -267,7 +267,7 @@ void spawn_job(job_t *j, bool fg) {
             dup2(log_fd, STDERR_FILENO);
 
             execvp(p->argv[0], p->argv);
-            perror("now you done fucked up");
+            perror("now you done fucked up"); //exec only returns on failure, so exit
             exit(1);
 
 		   default: /* parent */
@@ -288,7 +288,7 @@ void spawn_job(job_t *j, bool fg) {
     if (fg) {
         wait_on_job(j);
     }
-    tcsetpgrp(shell_terminal, getpid());
+	tcsetpgrp(shell_terminal, shell_pgid);	
 }
 
 bool init_job(job_t *j) {
@@ -588,11 +588,11 @@ bool check_command(job_t* job, char* command) {
 char* job_status(job_t* j) {
     bool terminated = false;
     process_t* p;
-    for (p = j->first_process; p; p = p->next) {
-        if (p->status == -1) {
-            int pid = waitpid(p->pid, &(p->status), WNOHANG);
+    for (p = j->first_process; p; p = p->next) {              //loop through job's processes and obtain statuses
+        if (p->status == -1) {                    
+            int pid = waitpid(p->pid, &(p->status), WNOHANG); //return status of pid process immediately 
             if (pid == -1) {
-                perror("OH NOES");
+                perror("OH NOES");                
                 return "Error";
             }
             else if (pid == 0) {
@@ -600,7 +600,7 @@ char* job_status(job_t* j) {
             }
         }
 
-        if (WIFEXITED(p->status)) {
+        if (WIFEXITED(p->status)) {                            
             p->completed = true;
         }
         if (WIFSIGNALED(p->status)) {
@@ -618,7 +618,7 @@ char* job_status(job_t* j) {
 /* Displays the command strings and status for all current jobs */
 void builtin_jobs() {
     job_t* j;
-	job_t* prev;
+	job_t* prev;                                                        //Previous point needed because need to remove jobs AFTER getting next job in list
 	int i;
 	for (prev = NULL, j=first_job, i = 1; j; prev = j, j=j->next, i++){ //for each job, print status, then remove if completed
 		
@@ -635,7 +635,7 @@ void builtin_jobs() {
 /* Continue job with specifed pgid in the background. Control stays with terminal*/
 void resume_background_job(pid_t pgid) {
     job_t* j = find_job(pgid);      //ID the stopped job 
-	j->bg = true;
+	j->bg = true;                   //If it was in foreground, now in background
 	process_t* p;                  
 	for (p = j->first_process; p; p = p->next) {
 		if (p->stopped) {           //resume all stopped processes in its process group
@@ -682,7 +682,7 @@ void execute_job(job_t* job) {
         remove_job(job);
     } 
     else {                                  //Default case, not built in command - spawn the new job
-        spawn_job(job, !job->bg);
+		spawn_job(job, !job->bg);
     }
 }
 
